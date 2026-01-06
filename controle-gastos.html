@@ -1,0 +1,275 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8" />
+  <title>Controle de Gastos</title>
+  <style>
+    body {
+      font-family: 'Segoe UI', Arial, sans-serif;
+      background: linear-gradient(135deg, #667eea, #764ba2);
+      margin: 0;
+      padding: 20px;
+    }
+    h1 {
+      text-align: center;
+      color: #fff;
+      margin-bottom: 20px;
+    }
+    .container {
+      max-width: 900px;
+      margin: auto;
+      background: #ffffff;
+      padding: 30px;
+      border-radius: 18px;
+      box-shadow: 0 10px 25px rgba(0,0,0,0.2);
+    }
+    .add-box {
+      background: #f3f4ff;
+      padding: 20px;
+      border-radius: 16px;
+      margin-bottom: 25px;
+    }
+    .add-box h2 {
+      margin-top: 0;
+      text-align: center;
+    }
+    .form {
+      display: flex;
+      gap: 15px;
+      flex-wrap: wrap;
+    }
+    .form input {
+      flex: 1;
+      padding: 14px;
+      font-size: 18px;
+      border-radius: 10px;
+      border: 1px solid #ccc;
+    }
+    .form button {
+      width: 100%;
+      padding: 18px;
+      font-size: 20px;
+      background: #667eea;
+      color: white;
+      border: none;
+      border-radius: 14px;
+      cursor: pointer;
+      font-weight: bold;
+      margin-top: 10px;
+    }
+    .form button:hover {
+      background: #5563d6;
+    }
+    .filtros {
+      display: flex;
+      justify-content: center;
+      gap: 10px;
+      margin-bottom: 15px;
+    }
+    .filtros button {
+      padding: 10px 20px;
+      border-radius: 20px;
+      border: none;
+      cursor: pointer;
+      font-weight: bold;
+      background: #e0e0e0;
+    }
+    .filtros button.ativo {
+      background: #667eea;
+      color: white;
+    }
+    select {
+      padding: 8px;
+      font-size: 16px;
+      border-radius: 8px;
+    }
+    table {
+      width: 100%;
+      border-collapse: collapse;
+      margin-top: 10px;
+    }
+    table th, table td {
+      padding: 12px;
+      text-align: center;
+    }
+    table th {
+      background: #f3f4f6;
+    }
+    table tr:nth-child(even) {
+      background: #fafafa;
+    }
+    .resumos {
+      display: flex;
+      justify-content: space-between;
+      margin-top: 20px;
+      font-size: 18px;
+      font-weight: bold;
+    }
+  </style>
+</head>
+<body>
+  <h1>📊 Controle de Gastos</h1>
+
+  <div class="container">
+
+    <div class="add-box">
+      <h2>➕ Adicionar novo gasto</h2>
+      <div class="form">
+        <input type="text" id="nome" placeholder="Nome do gasto" />
+        <input type="number" id="valor" placeholder="Valor (R$)" />
+        <button onclick="adicionarGasto()">INSERIR GASTO</button>
+      </div>
+    </div>
+
+    <div class="filtros">
+      <button id="btnMes" class="ativo" onclick="verMesAtual()">📅 Ver mês atual</button>
+      <button id="btnTodos" onclick="verTodos()">📂 Ver todos os gastos</button>
+    </div>
+
+    <div style="text-align:center; margin-bottom:10px;" id="seletorMes"></div>
+
+    <table>
+      <thead>
+        <tr>
+          <th>Data</th>
+          <th>Gasto</th>
+          <th>Valor (R$)</th><th>Remover</th>
+        </tr>
+      </thead>
+      <tbody id="tabelaGastos"></tbody>
+    </table>
+
+    <div class="resumos">
+      <div>Total do mês: R$ <span id="totalMes">0.00</span></div>
+      <div>Total geral: R$ <span id="totalGeral">0.00</span></div>
+    </div>
+
+  </div>
+
+  <script>
+    let gastos = JSON.parse(localStorage.getItem('gastos')) || {};
+    let modo = 'mes';
+    let mesSelecionado = mesAtual();
+
+    function mesAtual() {
+      const d = new Date();
+      return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}`;
+    }
+
+    function dataHoje() {
+      const d = new Date();
+      return `${String(d.getDate()).padStart(2,'0')}/${String(d.getMonth()+1).padStart(2,'0')}/${d.getFullYear()}`;
+    }
+
+    function adicionarGasto() {
+      const nome = document.getElementById('nome').value;
+      const valor = parseFloat(document.getElementById('valor').value);
+      const mes = mesAtual();
+
+      if (!nome || isNaN(valor)) {
+        alert('Preencha corretamente o gasto');
+        return;
+      }
+
+      if (!gastos[mes]) gastos[mes] = [];
+
+      gastos[mes].push({
+        nome,
+        valor,
+        data: dataHoje()
+      });
+
+      salvar();
+
+      document.getElementById('nome').value = '';
+      document.getElementById('valor').value = '';
+
+      mesSelecionado = mes;
+      verMesAtual();
+    }
+
+    function criarSeletorMes() {
+      const div = document.getElementById('seletorMes');
+      if (modo !== 'mes') {
+        div.innerHTML = '';
+        return;
+      }
+
+      const meses = Object.keys(gastos).sort();
+      let html = '<strong>Mês:</strong> <select onchange="trocarMes(this.value)">';
+      meses.forEach(m => {
+        html += `<option value="${m}" ${m===mesSelecionado?'selected':''}>${m}</option>`;
+      });
+      html += '</select>';
+      div.innerHTML = html;
+    }
+
+    function trocarMes(mes) {
+      mesSelecionado = mes;
+      atualizarTela();
+    }
+
+    function atualizarTela() {
+      const tbody = document.getElementById('tabelaGastos');
+      tbody.innerHTML = '';
+
+      let totalMes = 0;
+      let totalGeral = 0;
+
+      Object.values(gastos).forEach(lista => {
+        lista.forEach(g => totalGeral += g.valor);
+      });
+
+      if (modo === 'mes') {
+        const lista = gastos[mesSelecionado] || [];
+        lista.forEach((g, index) => {
+          totalMes += g.valor;
+          const tr = document.createElement('tr');
+          tr.innerHTML = `<td>${g.data}</td><td>${g.nome}</td><td>${g.valor.toFixed(2)}</td><td><button onclick="removerGasto('${mesSelecionado}', ${index})">❌</button></td>`;
+          tbody.appendChild(tr);
+        });
+      } else {
+        Object.keys(gastos).forEach(m => {
+          gastos[m].forEach((g, index) => {
+            const tr = document.createElement('tr');
+            tr.innerHTML = `<td>${g.data}</td><td>${g.nome} <br><small>(${m})</small></td><td>${g.valor.toFixed(2)}</td><td><button onclick="removerGasto('${m}', ${index})">❌</button></td>`;
+            tbody.appendChild(tr);
+          });
+        });
+      }
+
+      document.getElementById('totalMes').textContent = totalMes.toFixed(2);
+      document.getElementById('totalGeral').textContent = totalGeral.toFixed(2);
+      criarSeletorMes();
+    }
+
+    function verMesAtual() {
+      modo = 'mes';
+      mesSelecionado = mesAtual();
+      document.getElementById('btnMes').classList.add('ativo');
+      document.getElementById('btnTodos').classList.remove('ativo');
+      atualizarTela();
+    }
+
+    function verTodos() {
+      modo = 'todos';
+      document.getElementById('btnTodos').classList.add('ativo');
+      document.getElementById('btnMes').classList.remove('ativo');
+      atualizarTela();
+    }
+
+    function salvar() {
+      localStorage.setItem('gastos', JSON.stringify(gastos));
+    }
+
+    function removerGasto(mes, index) {
+      if (!confirm('Deseja remover este gasto?')) return;
+      gastos[mes].splice(index, 1);
+      salvar();
+      atualizarTela();
+    }
+
+    atualizarTela();
+  </script>
+</body>
+</html>
